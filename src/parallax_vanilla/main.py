@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from PIL import Image
 from input_model import Mouse
-from parallax import compute_parallax
+from parallax import Parallax
+from client import ParallaxDisplay
 
 def run(args):
     offset_bound = args.offset_bound
@@ -24,21 +25,26 @@ def run(args):
         print(f'\nImage has a shape of {image.shape}, but depth is {depth.shape}')
         return
     
-    image_shape = image.shape[:2]
+    # image_shape = image.shape[:2]
 
-    mouse = Mouse(image_shape)
+    # mouse = Mouse(image_shape)
+
+    par = Parallax(image, depth, offset_bound, gamma)
+    display = ParallaxDisplay(par)
 
     Path.mkdir(Path(output_path), exist_ok=True)
 
-    while (input("Enter 'x' to finish: ") != 'x'):
-        dx, dy = mouse.get_move_distance()
-        result = compute_parallax(image, depth, dx, dy, offset_bound, gamma)
+    # while (input("Enter 'x' to finish: ") != 'x'):
+        # dx, dy = mouse.get_move_distance()
+        # result = compute_parallax(image, depth, dx, dy, offset_bound, gamma)
 
-        output_file = output_path + str(args.image_path.stem) + f"_{dx:.2f}_{dy:.2f}.jpg"
-        print(f"Saving parallax {dx:.2f}, {dy:.2f} to: {output_file}")
-        Image.fromarray(result).save(
-            output_file, format="JPEG", quality=90
-        )
+        # output_file = output_path + str(args.image_path.stem) + f"_{dx:.2f}_{dy:.2f}.jpg"
+        # print(f"Saving parallax {dx:.2f}, {dy:.2f} to: {output_file}")
+        # Image.fromarray(result).save(
+        #     output_file, format="JPEG", quality=90
+        # )
+    print("Press Esc to quit.")
+    display.run()
 
 
 def main():
@@ -62,6 +68,7 @@ def main():
         "-o",
         "--output-path",
         type=Path,
+        default="./outputs/",
         help="Path to store output files.",
     )
     parser.add_argument(
