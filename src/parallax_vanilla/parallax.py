@@ -5,7 +5,7 @@ import cv2
 def normalize_depth(depth):
     return (depth - depth.min()) / (depth.max() - depth.min())
 
-def parallax_factor(norm_depth_array, gamma=2.0):
+def parallax_factor(norm_depth_array, gamma=0.1):
     factor = 1.0 - np.power(norm_depth_array, gamma)
     return factor
 

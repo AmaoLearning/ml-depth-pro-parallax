@@ -1,0 +1,1 @@
+python ./src/parallax_vanilla/main.py -i ./data/coast_road.jpg -d ./outputs/coast_road.npz -g 0.1

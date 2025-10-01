@@ -82,8 +82,8 @@ def main():
         "-g",
         "--gamma",
         type=float,
-        default=2,
-        help="Exponet controling offset-depth."
+        default=0.1,
+        help="Exponet controling offset-depth. Tests found that gamma close to 0 is better."
     )
 
     run(parser.parse_args())
