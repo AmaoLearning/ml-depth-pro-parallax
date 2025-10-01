@@ -35,6 +35,8 @@ class Parallax:
         self.gamma = gamma
 
         self.factor = parallax_factor(self.n_depth, self.gamma)
+
+        self.grid_y, self.grid_x = np.meshgrid(np.arange(self.H), np.arange(self.W), indexing='ij')
     
     def get_bounds(self):
         return self.H, self.W
@@ -48,8 +50,11 @@ class Parallax:
 
         return: parallax image, same shape as image
         """
+
+        if abs(dx) < 1e-6 and abs(dy) < 1e-6:
+            return self.image
         
-        grid_y, grid_x = np.meshgrid(np.arange(self.H), np.arange(self.W), indexing='ij')
+        grid_y, grid_x = self.grid_y, self.grid_x
 
         x_distance = self.offset_bound * dx * self.W
         y_distance = self.offset_bound * dy * self.H
@@ -61,15 +66,21 @@ class Parallax:
         sample_x = grid_x + offset_x
         sample_y = grid_y + offset_y
         
-        sample_x = np.clip(sample_x, 0, self.W - 1)
-        sample_y = np.clip(sample_y, 0, self.H - 1)
+        sample_x = np.clip(sample_x, 0, self.W - 1).astype(np.float32)
+        sample_y = np.clip(sample_y, 0, self.H - 1).astype(np.float32)
         
-        if self.image.ndim == 3:
-            result = np.zeros_like(self.image)
-            for c in range(self.image.shape[2]):
-                result[..., c] = map_coordinates(self.image[..., c], [sample_y, sample_x], order=1, mode='reflect')
-        else:
-            result = map_coordinates(self.image, [sample_y, sample_x], order=1, mode='reflect')
+        # if self.image.ndim == 3:
+        #     result = np.zeros_like(self.image)
+        #     for c in range(self.image.shape[2]):
+        #         result[..., c] = map_coordinates(self.image[..., c], [sample_y, sample_x], order=1, mode='reflect', prefilter=False)
+        # else:
+        #     result = map_coordinates(self.image, [sample_y, sample_x], order=1, mode='reflect', prefilter=False)
+        result = cv2.remap(
+            self.image,
+            sample_x, sample_y,
+            cv2.INTER_LINEAR, cv2.BORDER_REFLECT
+        )
+        
         return result
 
     def convert_color_mode(self, mode="BGR"):
