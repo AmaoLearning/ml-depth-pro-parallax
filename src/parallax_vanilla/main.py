@@ -32,7 +32,7 @@ def run(args):
     par = Parallax(image, depth, offset_bound, gamma)
     display = ParallaxDisplay(par)
 
-    Path.mkdir(Path(output_path), exist_ok=True)
+    # Path.mkdir(Path(output_path), exist_ok=True)
 
     # while (input("Enter 'x' to finish: ") != 'x'):
         # dx, dy = mouse.get_move_distance()

@@ -1,1 +1,1 @@
-python ./src/parallax_vanilla/main.py -i ./data/coast_road.jpg -d ./outputs/coast_road.npz -g 0.1
+python ./src/parallax_vanilla/main.py -i ./data/stand_sea.jpg -d ./outputs/anime_stand_and_the_sea.npz -g 0.05 -b 0.05

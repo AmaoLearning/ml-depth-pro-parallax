@@ -7,6 +7,10 @@ def normalize_depth(depth):
 
 def parallax_factor(norm_depth_array, gamma=0.1):
     factor = 1.0 - np.power(norm_depth_array, gamma)
+
+    # perform low-pass filtering
+    factor = cv2.GaussianBlur(factor.astype(np.float32), (5, 5), 1.2)
+
     return factor
 
 
@@ -19,6 +23,8 @@ class Parallax:
         - offset_bound: bound offsets, better to be less than 1
         - gamma: control the parallax factor = 1 - depth ^ gamma
         """
+
+        print("Parallax model preprocessing...")
         self.image = image
         self.color_mode = "RGB"
         self.n_depth = normalize_depth(depth)
@@ -37,6 +43,20 @@ class Parallax:
         self.factor = parallax_factor(self.n_depth, self.gamma)
 
         self.grid_y, self.grid_x = np.meshgrid(np.arange(self.H), np.arange(self.W), indexing='ij')
+        
+        # prepare for sorting
+        src_indices = np.arange(self.H * self.W)
+        src_y_coords = src_indices // self.W
+        src_x_coords = src_indices % self.W
+        depth_values = self.n_depth.flatten()
+        
+        # sort back to forth
+        sort_order = np.argsort(-depth_values)
+        
+        self.sorted_src_y = src_y_coords[sort_order]
+        self.sorted_src_x = src_x_coords[sort_order]
+
+        print("Load parallax model complete!")
     
     def get_bounds(self):
         return self.H, self.W
@@ -66,8 +86,8 @@ class Parallax:
         sample_x = grid_x + offset_x
         sample_y = grid_y + offset_y
         
-        sample_x = np.clip(sample_x, 0, self.W - 1).astype(np.float32)
-        sample_y = np.clip(sample_y, 0, self.H - 1).astype(np.float32)
+        sample_x = np.clip(sample_x, 0, self.W - 1)#.astype(np.float32)
+        sample_y = np.clip(sample_y, 0, self.H - 1)#.astype(np.float32)
         
         # if self.image.ndim == 3:
         #     result = np.zeros_like(self.image)
@@ -75,12 +95,42 @@ class Parallax:
         #         result[..., c] = map_coordinates(self.image[..., c], [sample_y, sample_x], order=1, mode='reflect', prefilter=False)
         # else:
         #     result = map_coordinates(self.image, [sample_y, sample_x], order=1, mode='reflect', prefilter=False)
-        result = cv2.remap(
-            self.image,
-            sample_x, sample_y,
-            cv2.INTER_LINEAR, cv2.BORDER_REFLECT
-        )
+        # result = cv2.remap(
+        #     self.image,
+        #     sample_x, sample_y,
+        #     cv2.INTER_LINEAR, cv2.BORDER_REFLECT
+        # )
+
+        result = np.zeros_like(self.image)
+        covered = np.zeros((self.H, self.W), dtype=bool)
         
+        sorted_src_y = self.sorted_src_y
+        sorted_src_x = self.sorted_src_x
+        
+        dst_x = np.round(sample_x[sorted_src_y, sorted_src_x]).astype(int)
+        dst_y = np.round(sample_y[sorted_src_y, sorted_src_x]).astype(int)
+        
+        valid_mask = (dst_x >= 0) & (dst_x < self.W) & (dst_y >= 0) & (dst_y < self.H)
+
+        valid_src_y = sorted_src_y[valid_mask]
+        valid_src_x = sorted_src_x[valid_mask]
+        valid_dst_x = dst_x[valid_mask]
+        valid_dst_y = dst_y[valid_mask]
+        
+        result[valid_dst_y, valid_dst_x] = self.image[valid_src_y, valid_src_x]
+        covered[valid_dst_y, valid_dst_x] = True
+
+        # apply Telea algorithm based on Fast Marching Method to supplement the hollows
+        uncovered = ~covered
+        if np.any(uncovered):
+            inpaint_mask = uncovered.astype(np.uint8)
+            result = cv2.inpaint(
+                result.astype(np.uint8), 
+                inpaint_mask, 
+                inpaintRadius=3, 
+                flags=cv2.INPAINT_TELEA  # or cv2.INPAINT_NS
+            ).astype(self.image.dtype)
+
         return result
 
     def convert_color_mode(self, mode="BGR"):
