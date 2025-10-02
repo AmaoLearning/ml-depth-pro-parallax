@@ -3,7 +3,47 @@ import numpy as np
 import cv2
 
 def normalize_depth(depth):
-    return (depth - depth.min()) / (depth.max() - depth.min())
+    result = np.zeros_like(depth)
+
+    n_depth = (depth - depth.min()) / (depth.max() - depth.min())
+
+    # import matplotlib.pyplot as plt
+    # plt.hist(n_depth.flatten(), bins=50, color='blue', alpha=0.7)
+    # plt.title("Depth Value Distribution")
+    # plt.xlabel("Normalized Depth")
+    # plt.ylabel("Pixel Count")
+    # plt.show()
+
+    # fit depth into Beta distribution
+    mean = np.mean(n_depth)
+    var = np.var(n_depth)
+    median = np.median(n_depth)
+    if var > 0:
+        common = mean * (1 - mean) / var - 1
+        alpha = mean * common
+        beta = (1 - mean) * common
+    else:
+        alpha = beta = np.nan
+        raise ValueError("Alpha and beta are NaN when fitting Beta distribution to depth. Check your depth data!")
+
+    print(f"Fit depth into Beta distribution: alpha={alpha}, beta={beta}")
+    # cull when depth clusters around 0 and 10000
+    if alpha < 1 and beta < 1:
+        # a radical strategy on culling
+        thresh = mean if mean < median else median
+        valid_mask = n_depth < thresh
+        
+        culled_depth = depth[valid_mask]
+        culled_max = culled_depth.max()
+        culled_min = culled_depth.min()
+        print(f"Culled depth max value: {culled_max}, min value: {culled_min}")
+        
+        result[valid_mask]=  (culled_depth - culled_min) / (culled_max - culled_min)
+        result[~valid_mask] = 1
+    else:
+        result = n_depth
+    
+    return result
 
 def parallax_factor(norm_depth_array, gamma=0.1):
     factor = 1.0 - np.power(norm_depth_array, gamma)
@@ -27,6 +67,7 @@ class Parallax:
         print("Parallax model preprocessing...")
         self.image = image
         self.color_mode = "RGB"
+        # self.depth = depth
         self.n_depth = normalize_depth(depth)
         self.H, self.W = depth.shape
 
@@ -63,6 +104,22 @@ class Parallax:
     
     def get_color_mode(self):
         return self.color_mode
+    
+    # def plot_n_depth_hist(self, bins=50):
+    #     import matplotlib.pyplot as plt
+    #     plt.hist(self.n_depth.flatten(), bins=bins, color='blue', alpha=0.7)
+    #     plt.title("Depth Value Distribution")
+    #     plt.xlabel("Normalized Depth")
+    #     plt.ylabel("Pixel Count")
+    #     plt.show()
+    
+    # def plot_depth_hist(self, bins=100):
+    #     import matplotlib.pyplot as plt
+    #     plt.hist(self.depth.flatten(), bins=bins, color='blue', alpha=0.7)
+    #     plt.title("Depth Value Distribution")
+    #     plt.xlabel("Normalized Depth")
+    #     plt.ylabel("Pixel Count")
+    #     plt.show()
 
     def compute_parallax(self, dx, dy):
         """

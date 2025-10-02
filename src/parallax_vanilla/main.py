@@ -30,6 +30,7 @@ def run(args):
     # mouse = Mouse(image_shape)
 
     par = Parallax(image, depth, offset_bound, gamma)
+    # par.plot_n_depth_hist()
     display = ParallaxDisplay(par)
 
     # Path.mkdir(Path(output_path), exist_ok=True)
